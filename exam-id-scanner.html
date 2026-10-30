@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f8fc" />
+  <title>ExamCheck — Student ID Check-In</title>
+  <!-- Libraries load on demand/use: OCR runs in this browser, not on an app server. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js"></script>
+  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{--bg:#f6f7fb;--surface:#fff;--ink:#19233c;--muted:#69758d;--border:#e5e9f1;--primary:#4e58df;--primary-dark:#3944c7;--tint:#eff0ff;--good:#168262;--goodbg:#e8f7f0;--warn:#af6a1a;--warnbg:#fff4df;--bad:#b5465c;--badbg:#feebef;--radius:18px;--shadow:0 5px 30px rgba(28,42,85,.045)}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
+    button,input{font:inherit} button{cursor:pointer} button:disabled{opacity:.46;cursor:not-allowed}
+    button:focus-visible,input:focus-visible,.dropzone:focus-visible{outline:3px solid #acb2ff;outline-offset:2px}
+    .shell{max-width:1260px;margin:0 auto;padding:27px 34px 46px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:26px;border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:12px}.brand-icon{height:44px;width:44px;background:var(--primary);color:#fff;border-radius:13px;display:grid;place-items:center;box-shadow:0 7px 15px #515ce12b}
+    .brand strong{display:block;font-size:18px;letter-spacing:-.5px}.brand small{display:block;color:var(--muted);font-size:12px;margin-top:-2px}
+    .topright{display:flex;align-items:center;gap:15px;color:var(--muted);font-size:13px}.privacy-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #dce9e2;border-radius:50px;padding:7px 12px;background:#f5fbf7;color:#397c64;font-size:12px;font-weight:650}
+    .dot{height:7px;width:7px;display:inline-block;background:#37b287;border-radius:50%}
+    h1,h2,h3,p{margin-top:0} h1{font-size:28px;letter-spacing:-1.1px;line-height:1.2;margin-bottom:8px} h2{font-size:16px;letter-spacing:-.35px;margin:0} h3{font-size:14px;margin:0}
+    .intro{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:27px 0 24px}.intro p{color:var(--muted);margin:0}.section-marker{display:inline-flex;gap:7px;align-items:center;color:var(--muted);font-size:12px;font-weight:600}
+    .layout{display:grid;grid-template-columns:minmax(0,1.24fr) minmax(335px,.76fr);gap:20px;align-items:start}
+    .card{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+    .card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:21px 23px 18px}
+    .card-sub{font-size:12px;color:var(--muted);margin-top:4px}.stage{margin:0 22px;border-radius:13px;position:relative;min-height:332px;aspect-ratio:16/10;overflow:hidden;background:radial-gradient(circle at 48% 28%,#29364e 0%,#151e31 70%);display:flex;align-items:center;justify-content:center}
+    video{width:100%;height:100%;position:absolute;inset:0;object-fit:cover;display:none} video.active{display:block}
+    .camera-empty{text-align:center;color:#fff;z-index:1;padding:20px}.camera-symbol{margin:0 auto 13px;height:56px;width:56px;border:1px solid #ffffff30;background:#ffffff14;border-radius:18px;display:grid;place-items:center;color:#d4dafc}.camera-empty strong{font-size:16px;display:block}.camera-empty small{color:#b3bfd5;display:block;margin-top:6px;max-width:260px}
+    .guide{display:none;position:absolute;left:11%;right:11%;top:19%;bottom:19%;border:2px solid #ffffff8a;border-radius:12px;box-shadow:0 0 0 100vw #00000024;pointer-events:none}.guide::after{content:'Align the student card inside the frame';position:absolute;left:0;right:0;bottom:-32px;text-align:center;color:#fff;text-shadow:0 1px 6px #000;font-size:12px}.stage.live .guide{display:block}
+    .live-tag{position:absolute;top:13px;left:14px;border-radius:50px;background:#101827bc;color:#fff;font-size:11px;letter-spacing:.5px;font-weight:700;padding:6px 11px;display:none;align-items:center;gap:8px}.stage.live .live-tag{display:flex}.live-tag .dot{background:#ff6868}
+    .camera-actions{padding:19px 22px 9px;display:flex;gap:10px;flex-wrap:wrap}.camera-help{padding:0 23px 12px;font-size:12px;color:var(--muted);line-height:1.6;margin:0}.camera-help.warning{color:#9d6121}.btn{border:1px solid var(--border);border-radius:10px;padding:11px 15px;background:#fff;color:#34405a;font-weight:675;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;transition:.15s background,.15s border-color}.btn:hover:not(:disabled){background:#f6f7fc;border-color:#cfd5e5}.btn svg{height:18px;width:18px;flex-shrink:0}.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-primary:hover:not(:disabled){background:var(--primary-dark);border-color:var(--primary-dark)}.btn-soft{background:var(--tint);border-color:var(--tint);color:var(--primary)}.btn-soft:hover:not(:disabled){background:#e4e6ff;border-color:#e4e6ff}.btn-quiet{border-color:transparent;background:transparent;color:var(--muted)}.btn-danger{color:var(--bad)}.grow{flex:1}.note{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;margin:0;padding:0 23px 22px}.note svg{flex-shrink:0;margin-top:1px}
+    .sidebar{display:grid;gap:20px}.roster-body{padding:0 21px 20px}.dropzone{width:100%;border:1.5px dashed #c8d0e3;background:#f9faff;border-radius:12px;display:flex;align-items:center;gap:15px;padding:17px;cursor:pointer;text-align:left}.dropzone:hover,.dropzone.dragging{background:var(--tint);border-color:var(--primary)}.file-icon{width:45px;height:45px;background:#edf0ff;border-radius:12px;color:var(--primary);display:grid;place-items:center;flex-shrink:0}.dropzone strong{display:block;font-size:13px}.dropzone small{color:var(--muted);font-size:12px;display:block}.roster-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;color:var(--muted);font-size:12px}.roster-meta strong{color:var(--ink)}.linkbtn{border:none;color:var(--primary);background:none;padding:3px;font-weight:650;font-size:12px}
+    .add-body{padding:0 21px 21px}.add-body p{font-size:12px;color:var(--muted);margin:0 0 15px}.add-body .btn{width:100%}
+    .stats{padding:0 18px 18px}.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:#f7f8fc;border-radius:12px;padding:14px 12px}.stat:nth-child(2){background:#f0faf6}.stat:nth-child(3){background:#fff8ef}.stat label{font-size:11px;color:var(--muted);font-weight:650;display:block}.stat strong{font-size:27px;letter-spacing:-.8px;font-weight:750;line-height:1.35;display:block}.stat:nth-child(2) strong{color:var(--good)}.stat:nth-child(3) strong{color:var(--warn)}.stats .btn{width:100%;margin-top:15px}.status-message{font-size:12px;color:var(--muted);margin-top:11px;text-align:center}
+    .list-card{margin-top:20px}.list-heading{padding:22px 23px 16px;display:flex;justify-content:space-between;align-items:center;gap:16px}.list-heading p{margin:4px 0 0;color:var(--muted);font-size:12px}.list-tools{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.search{position:relative}.search input{border:1px solid var(--border);border-radius:9px;padding:10px 11px 10px 35px;min-width:230px;max-width:270px;color:var(--ink);background:#fff;outline:none}.search svg{position:absolute;left:11px;top:12px;color:#8e97ab;width:16px;height:16px}.tinybtn{min-height:39px;padding:8px 11px;font-size:12px}.table-scroll{overflow:auto;max-height:355px;min-height:160px}.table-scroll table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap} th{background:#fafbfe;color:#7b879a;font-size:11px;text-transform:uppercase;letter-spacing:.75px;font-weight:750;padding:12px 22px;position:sticky;top:0;z-index:2}td{padding:13px 22px;border-top:1px solid #edf0f5;color:#445069;font-size:13px}td b{font-weight:650;color:var(--ink)}.muted{color:#97a0b2}.table-status{border-radius:50px;padding:5px 9px;font-size:11px;font-weight:700;display:inline-block;background:#f0f1f6;color:#747d93}.table-status.good{background:var(--goodbg);color:var(--good)}.table-status.warn{background:var(--warnbg);color:var(--warn)}.table-status.bad{background:var(--badbg);color:var(--bad)}.action-inline{display:inline-flex;align-items:center;gap:11px}.action-inline button{color:var(--primary);border:0;background:transparent;padding:3px;font-size:12px;font-weight:600}.action-inline button.remove{color:#a85c72}.table-empty{text-align:center;color:var(--muted);padding:55px 20px}.table-empty svg{display:block;margin:0 auto 10px;color:#abb4ca}.table-empty strong{display:block;color:#526079;font-size:13px}.table-empty p{font-size:12px;margin:4px 0 0}
+    .list-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);flex-wrap:wrap}
+    .missing-panel{padding:0 22px 19px;display:none}.missing-panel.visible{display:block}.missing-toggle{border:0;background:#f7f8fc;border-radius:10px;width:100%;padding:12px 13px;display:flex;align-items:center;justify-content:space-between;color:#45536d;font-weight:650}.missing-names{max-height:205px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;display:none}.missing-names.open{display:block}.missing-row{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px;font-size:12px}.missing-row:last-child{border:0}.missing-row span:last-child{color:var(--muted)}
+    footer{color:#9aa3b5;text-align:center;font-size:12px;padding-top:28px}
+    dialog{border:1px solid var(--border);border-radius:18px;background:#fff;color:var(--ink);box-shadow:0 24px 100px #14264f40;padding:0;width:min(490px,calc(100vw - 30px));max-height:calc(100vh - 40px);overflow:auto}dialog::backdrop{background:#121a2c91;backdrop-filter:blur(3px)}.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 0}.dialog-head h2{font-size:19px}.dialog-head p{color:var(--muted);font-size:12px;margin:5px 0 0}.close{border:0;background:transparent;color:#8892a7;font-size:25px;line-height:1;padding:0 3px}.dialog-content{padding:20px 24px}.form-group{margin-bottom:15px}.form-group label{display:block;font-size:12px;font-weight:700;color:#4e5b73;margin-bottom:6px}.form-group input{width:100%;border:1px solid #dce1eb;border-radius:10px;padding:12px 13px;outline:0}.form-group input:focus{border-color:#7f87ec;box-shadow:0 0 0 3px #e9eaff}.helper{margin-top:7px;font-size:11px;color:var(--muted)}.preview{display:none;border-radius:10px;overflow:hidden;background:#eef0f5;margin-bottom:14px}.preview img{width:100%;max-height:175px;object-fit:contain;display:block}.ocr-info{display:none;background:#f5f6ff;color:#54629a;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px}.ocr-info.visible{display:block}.match-hint{font-size:12px;color:var(--good);background:#effaf4;border-radius:8px;padding:9px 11px;margin:-3px 0 15px;display:none}.match-hint.visible{display:block}.dialog-actions{padding:0 24px 24px;display:flex;justify-content:flex-end;gap:9px}
+    .toast{position:fixed;bottom:23px;right:25px;background:#23314c;color:#fff;padding:12px 17px;border-radius:11px;box-shadow:0 12px 30px #15274336;z-index:50;max-width:min(440px,calc(100vw - 40px));opacity:0;transform:translateY(15px);transition:opacity .15s,transform .15s;pointer-events:none}.toast.visible{opacity:1;transform:translateY(0)}
+    @media(max-width:980px){.layout{grid-template-columns:1fr 1fr}.camera-card{grid-column:1/-1}.sidebar{grid-column:1/-1;grid-template-columns:repeat(2,1fr)}.sidebar .summary-card{grid-column:1/-1}.stage{min-height:290px}.shell{padding:23px}.list-heading{align-items:flex-start;flex-direction:column}.list-tools{width:100%}.search{flex:1}.search input{max-width:none;width:100%}}
+    @media(max-width:600px){.shell{padding:16px}.topbar{padding-bottom:16px}.topright .date{display:none}.intro{margin:23px 0 17px}h1{font-size:24px}.layout,.sidebar{display:flex;flex-direction:column}.layout>* , .sidebar>*{width:100%}.card-header{padding:18px}.stage{margin:0 14px;min-height:220px}.camera-actions{padding:14px;gap:8px}.camera-actions .btn{flex:1 1 calc(50% - 8px);padding:9px 10px;font-size:12px}.camera-help{padding:0 16px 10px}.note{padding:0 16px 16px}.list-card{margin-top:16px}.list-heading{padding:18px}.list-tools{gap:6px}.search{width:100%;flex:auto}.search input{width:100%;max-width:none}.stat strong{font-size:23px}th,td{padding:12px 15px}.privacy-pill{font-size:11px;padding:6px 9px}.brand strong{font-size:16px}.brand small{font-size:11px}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-icon" aria-hidden="true"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2"/><path d="M6.8 16c.4-2.5 4-2.5 4.5 0M14 10h4m-4 4h4"/></svg></div><div><strong>ExamCheck</strong><small>Student ID check-in</small></div></div>
+      <div class="topright"><span class="date" id="todayDate"></span><span class="privacy-pill"><span class="dot"></span> Processed on this device</span></div>
+    </header>
+
+    <div class="intro"><div><h1>Exam attendance, simplified.</h1><p>Scan student IDs, verify names, and compare against your class roster.</p></div><span class="section-marker">EXAM CHECK-IN DESK</span></div>
+
+    <main>
+      <div class="layout">
+        <section class="card camera-card" aria-labelledby="cameraTitle">
+          <div class="card-header"><div><h2 id="cameraTitle">01 &nbsp; Scan a student ID</h2><div class="card-sub">Point the camera toward the card and capture a clear image.</div></div><span id="cameraIndicator" class="table-status">Camera off</span></div>
+          <div class="stage" id="cameraStage">
+            <video id="cameraVideo" autoplay muted playsinline aria-label="Live camera feed"></video>
+            <div class="camera-empty" id="cameraEmpty"><div class="camera-symbol"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 5H9.3L7.6 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.6z"/><circle cx="12" cy="13" r="3.2"/></svg></div><strong>Ready to scan</strong><small>Start the camera to begin checking students in.</small></div>
+            <div class="guide" aria-hidden="true"></div><div class="live-tag"><span class="dot"></span> LIVE CAMERA</div>
+          </div>
+          <div class="camera-actions">
+            <button class="btn btn-primary grow" id="scanBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 5H9.3L7.6 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.6z"/><circle cx="12" cy="13" r="3"/></svg><span id="scanBtnText">Start camera</span></button>
+            <button class="btn btn-soft grow" id="captureBtn" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>Capture ID</button>
+            <button class="btn" id="switchBtn" type="button" disabled title="Switch between front and rear phone cameras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10V7a2 2 0 0 1 2-2h11l3 3"/><path d="m17 5 3 3-3 3"/><path d="M20 14v3a2 2 0 0 1-2 2H7l-3-3"/><path d="m7 19-3-3 3-3"/></svg>Flip camera</button>
+            <button class="btn" id="photoBtn" type="button" title="Take a photo with your phone camera or choose an ID photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="3"/></svg>Take photo</button>
+            <input id="photoInput" type="file" accept="image/*" capture="environment" hidden />
+            <button class="btn btn-quiet" id="stopBtn" title="Stop camera" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg>Stop</button>
+          </div>
+          <p id="cameraHelp" class="camera-help" role="status" aria-live="polite">On a phone, tap Start camera and allow access to this device’s camera. The rear camera is preferred. If live camera access is unavailable, use Take photo.</p>
+          <p class="note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8794af" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-9v1"/></svg>OCR fills in the student details automatically. Review each result before saving it to the attendance list.</p>
+        </section>
+        <aside class="sidebar">
+          <section class="card" aria-labelledby="rosterTitle"><div class="card-header"><div><h2 id="rosterTitle">02 &nbsp; Upload class roster</h2><div class="card-sub">Import the complete list of enrolled students.</div></div></div><div class="roster-body"><button type="button" id="uploadBtn" class="dropzone" aria-label="Upload CSV or Excel roster"><span class="file-icon"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 16V4m-4 4 4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><span><strong>Choose a file or drag it here</strong><small>CSV, TSV, XLSX, or XLS</small></span></button><input type="file" id="rosterFile" accept=".csv,.tsv,.xlsx,.xls,text/csv" hidden /><div class="roster-meta"><span id="rosterFileName">No roster uploaded</span><button id="sampleBtn" type="button" class="linkbtn">Sample CSV</button></div></div></section>
+          <section class="card"><div class="card-header"><div><h2>Manual check-in</h2><div class="card-sub">For students without a scannable card.</div></div></div><div class="add-body"><button id="manualBtn" type="button" class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Manual input</button></div></section>
+          <section class="card summary-card"><div class="card-header"><div><h2>03 &nbsp; Attendance check</h2><div class="card-sub">Compare distinct checked-in IDs with the roster.</div></div></div><div class="stats"><div class="stat-grid"><div class="stat"><label>Total students</label><strong id="totalStat">0</strong></div><div class="stat"><label>Matched</label><strong id="matchedStat">—</strong></div><div class="stat"><label>Missing</label><strong id="missingStat">—</strong></div></div><button id="checkBtn" class="btn btn-primary" type="button" disabled><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m5 12 4 4L19 6"/></svg>Check attendance</button><div class="status-message" id="checkNote">Upload a roster to enable matching.</div></div><div class="missing-panel" id="missingPanel"><button id="missingToggle" class="missing-toggle" type="button"><span id="missingToggleText">View missing students</span><span id="missingChevron">▾</span></button><div class="missing-names" id="missingNames"></div></div></section>
+        </aside>
+      </div>
+
+      <section class="card list-card" aria-labelledby="scannedTitle"><div class="list-heading"><div><h2 id="scannedTitle">Student check-in list <span class="table-status" id="scanCount">0 scans</span></h2><p>Captured records appear here as students check in.</p></div><div class="list-tools"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="searchInput" type="search" placeholder="Search name or ID" aria-label="Search scans" /></div><button class="btn tinybtn" id="exportBtn" type="button" disabled>Export CSV</button><button class="btn tinybtn btn-danger" id="clearBtn" type="button" disabled>Clear</button></div></div>
+        <div class="table-scroll"><table><thead><tr><th>Student name</th><th>Student number</th><th>Entry method</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead><tbody id="scanRows"></tbody></table><div id="emptyState" class="table-empty"><svg width="37" height="37" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8m-8 4h8m-8 4h5"/></svg><strong>No students checked in yet</strong><p>Scan an ID or use manual input to get started.</p></div></div><div class="list-footer"><span id="listFooter">Showing 0 records</span><span>Scans and roster stay in this browser tab; refreshing clears them.</span></div>
+      </section>
+    </main>
+    <footer>ExamCheck · Local, browser-based exam check-in</footer>
+  </div>
+
+  <dialog id="entryDialog" aria-labelledby="entryTitle"><div class="dialog-head"><div><h2 id="entryTitle">Review student details</h2><p id="entrySubtitle">Confirm the information before adding it.</p></div><button type="button" class="close" id="closeDialog" aria-label="Close">×</button></div><form id="entryForm"><div class="dialog-content"><div class="preview" id="entryPreview"><img id="previewImg" alt="Captured student ID image" /></div><div class="ocr-info" id="ocrInfo" role="status" aria-live="polite"></div><div class="form-group"><label for="studentName">Student name</label><input id="studentName" autocomplete="off" placeholder="e.g. Alex Chen" required maxlength="120" /></div><div class="form-group"><label for="studentNumber">Student number</label><input id="studentNumber" autocomplete="off" inputmode="numeric" placeholder="e.g. 12345678" required maxlength="30" /><div class="helper">Attendance is matched by student number, not name alone.</div></div><div id="matchHint" class="match-hint"></div></div><div class="dialog-actions"><button type="button" class="btn" id="cancelDialog">Cancel</button><button type="submit" class="btn btn-primary" id="saveEntryBtn">Save check-in</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (() => {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const ui = {
+      video:$('cameraVideo'), stage:$('cameraStage'), empty:$('cameraEmpty'), cameraIndicator:$('cameraIndicator'),
+      scanBtn:$('scanBtn'), scanBtnText:$('scanBtnText'), captureBtn:$('captureBtn'), stopBtn:$('stopBtn'),
+      switchBtn:$('switchBtn'), photoBtn:$('photoBtn'), photoInput:$('photoInput'), cameraHelp:$('cameraHelp'),
+      rosterFile:$('rosterFile'), uploadBtn:$('uploadBtn'), rosterFileName:$('rosterFileName'),
+      total:$('totalStat'), matched:$('matchedStat'), missing:$('missingStat'), checkBtn:$('checkBtn'), checkNote:$('checkNote'),
+      scanRows:$('scanRows'), emptyState:$('emptyState'), scanCount:$('scanCount'), listFooter:$('listFooter'),
+      searchInput:$('searchInput'), exportBtn:$('exportBtn'), clearBtn:$('clearBtn'),
+      missingPanel:$('missingPanel'), missingToggle:$('missingToggle'), missingToggleText:$('missingToggleText'), missingNames:$('missingNames'), missingChevron:$('missingChevron'),
+      dialog:$('entryDialog'), form:$('entryForm'), entryTitle:$('entryTitle'), entrySubtitle:$('entrySubtitle'),
+      preview:$('entryPreview'), previewImg:$('previewImg'), ocrInfo:$('ocrInfo'), name:$('studentName'), number:$('studentNumber'),
+      matchHint:$('matchHint'), saveEntryBtn:$('saveEntryBtn'), toast:$('toast')
+    };
+    let stream = null;
+    let cameraBusy = false;
+    let cameraFacing = 'environment';
+    let ocrWorker = null;
+    let ocrInitialization = null;
+    let ocrToken = 0;
+    let processing = false;
+    let roster = new Map(); // normalized student number -> { name, number }
+    let rosterFileName = '';
+    let scans = []; // [{uid,name,number,source,time}]
+    let checked = false;
+    let dialogMode = 'manual';
+    let editingUid = null;
+    let toastTimer = null;
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    $('todayDate').textContent = new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}).format(new Date());
+    function normalizeId(v){ return String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+    function normalizeName(v){ return String(v ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z\s]/g,' ').replace(/\s+/g,' ').trim(); }
+    function notify(text){ ui.toast.textContent=text; ui.toast.classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>ui.toast.classList.remove('visible'),3600); }
+    function el(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=String(text); return e; }
+    function statusBadge(status, cls){ const e=el('span','table-status '+cls,status); return e; }
+    function safeCSV(v){ let s=String(v??''); if(/^[\s]*[=+@-]/.test(s)) s="'"+s; return '"'+s.replace(/"/g,'""')+'"'; }
+    function downloadFile(text, filename, mime='text/csv;charset=utf-8'){ const blob=new Blob(['\uFEFF',text],{type:mime});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000); }
+    function timeText(date){return new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'}).format(date);}
+
+    // Camera permissions belong to the browser where this page is opened. On a
+    // phone, this explicitly requests that phone's rear camera (not the host PC's).
+    function cameraMessage(message, warning=false){
+      ui.cameraHelp.textContent=message;
+      ui.cameraHelp.classList.toggle('warning',warning);
+    }
+    function resetCameraUI(){
+      ui.video.pause();ui.video.srcObject=null;ui.video.classList.remove('active');
+      ui.stage.classList.remove('live');ui.empty.style.display='';
+      ui.cameraIndicator.className='table-status';ui.cameraIndicator.textContent='Camera off';
+      ui.scanBtn.disabled=cameraBusy;ui.scanBtnText.textContent='Start camera';
+      ui.captureBtn.disabled=true;ui.switchBtn.disabled=true;ui.stopBtn.disabled=true;
+    }
+    function stopCamera(){
+      if(stream){stream.getTracks().forEach(track=>track.stop());stream=null;}
+      resetCameraUI();
+      if(!cameraBusy)cameraMessage('Camera stopped. Tap Start camera to scan another student ID, or use Take photo.');
+    }
+    function cameraErrorMessage(error){
+      switch(error?.name){
+        case 'NotAllowedError':case 'PermissionDeniedError':
+          return 'Camera access was denied. Allow camera permission in your phone’s browser/site settings, or tap Take photo.';
+        case 'NotFoundError':case 'DevicesNotFoundError':
+          return 'No camera was found on this device. You can use Take photo to select an image instead.';
+        case 'NotReadableError':case 'TrackStartError':
+          return 'The camera is in use by another app. Close that app and try again.';
+        case 'OverconstrainedError':
+          return 'The requested camera is unavailable. Try Take photo.';
+        default:
+          return 'Unable to open this device’s camera. Try Take photo or check camera permissions.';
+      }
+    }
+    function cameraConstraints(facing, exact){
+      return {audio:false,video:{facingMode:exact?{exact:facing}:{ideal:facing},width:{ideal:1920},height:{ideal:1080}}};
+    }
+    async function requestCamera(facing, strict=false){
+      // A strict request prevents the Flip button silently reusing the same camera.
+      // Startup may fall back for laptops that have only one camera.
+      try {return await navigator.mediaDevices.getUserMedia(cameraConstraints(facing,true));}
+      catch(error){
+        if(strict || ['NotAllowedError','PermissionDeniedError','SecurityError'].includes(error.name))throw error;
+        try{return await navigator.mediaDevices.getUserMedia(cameraConstraints(facing,false));}
+        catch(fallbackError){
+          if(['NotAllowedError','PermissionDeniedError','SecurityError'].includes(fallbackError.name))throw fallbackError;
+          return navigator.mediaDevices.getUserMedia({audio:false,video:true});
+        }
+      }
+    }
+    async function attachCamera(nextStream, requestedFacing){
+      ui.video.srcObject=nextStream;
+      try{await ui.video.play();}
+      catch(error){nextStream.getTracks().forEach(track=>track.stop());ui.video.srcObject=null;throw error;}
+      stream=nextStream;
+      const track=stream.getVideoTracks()[0];
+      cameraFacing=track?.getSettings?.().facingMode || requestedFacing;
+      ui.video.classList.add('active');ui.stage.classList.add('live');ui.empty.style.display='none';
+      ui.cameraIndicator.textContent='Camera on';ui.cameraIndicator.className='table-status good';
+      ui.captureBtn.disabled=false;ui.stopBtn.disabled=false;ui.switchBtn.disabled=false;
+      ui.scanBtnText.textContent='Camera running';ui.scanBtn.disabled=true;
+      cameraMessage('Camera connected on this device. Hold the ID inside the guide and tap Capture ID. Use Flip camera to switch front/rear.');
+    }
+    async function startCamera(){
+      if(stream || cameraBusy)return;
+      if(!window.isSecureContext || !navigator.mediaDevices?.getUserMedia){
+        const msg='Live camera access requires HTTPS on your phone. Open this website through an HTTPS address (not a local http://192.168… URL), or try Take photo instead.';
+        cameraMessage(msg,true);notify(msg);return;
+      }
+      cameraBusy=true;ui.scanBtn.disabled=true;ui.scanBtnText.textContent='Requesting camera…';
+      cameraMessage('Your browser may ask for permission to use this device’s camera. Choose Allow.');
+      try{await attachCamera(await requestCamera('environment'), 'environment');}
+      catch(error){stopCamera();const msg=cameraErrorMessage(error);cameraMessage(msg,true);notify(msg);}
+      finally{cameraBusy=false;if(!stream)resetCameraUI();}
+    }
+    async function switchCamera(){
+      if(!stream || cameraBusy || !navigator.mediaDevices?.getUserMedia)return;
+      cameraBusy=true;
+      const previousFacing=cameraFacing;
+      const nextFacing=previousFacing==='environment'?'user':'environment';
+      ui.captureBtn.disabled=true;ui.switchBtn.disabled=true;
+      // iOS/Safari may need the previous camera track fully released first.
+      stopCamera();ui.cameraIndicator.textContent='Switching…';
+      try{
+        await attachCamera(await requestCamera(nextFacing,true), nextFacing);
+      }catch(error){
+        // Recover the original camera if the requested camera does not exist.
+        try{await attachCamera(await requestCamera(previousFacing), previousFacing);}
+        catch(recoveryError){stopCamera();}
+        const msg='Could not switch cameras on this device. '+cameraErrorMessage(error);
+        cameraMessage(msg,true);notify(msg);
+      }finally{cameraBusy=false;if(!stream)resetCameraUI();}
+    }
+    function processCapturedCanvas(canvas){
+      openDialog('scan');
+      ui.preview.style.display='block';ui.previewImg.src=canvas.toDataURL('image/jpeg',.86);
+      runOCR(canvas);
+    }
+    function captureFrame(){
+      if(!stream||processing||!ui.video.videoWidth){notify('Camera is not ready yet.');return;}
+      const canvas=document.createElement('canvas');
+      const scale=Math.min(1,2200/ui.video.videoWidth);
+      canvas.width=Math.round(ui.video.videoWidth*scale);
+      canvas.height=Math.round(ui.video.videoHeight*scale);
+      canvas.getContext('2d',{willReadFrequently:true}).drawImage(ui.video,0,0,canvas.width,canvas.height);
+      processCapturedCanvas(canvas);
+    }
+    async function processPhoto(file){
+      if(!file || processing)return;
+      if(!file.type.startsWith('image/')){notify('Please take or select an image of the student ID.');return;}
+      if(file.size>25*1024*1024){notify('Please use an image smaller than 25 MB.');return;}
+      const url=URL.createObjectURL(file);
+      try{
+        const photo=new Image();
+        await new Promise((resolve,reject)=>{photo.onload=resolve;photo.onerror=()=>reject(Error('This photo could not be opened.'));photo.src=url;});
+        const width=photo.naturalWidth,height=photo.naturalHeight;
+        if(!width || !height)throw Error('This photo is empty.');
+        const scale=Math.min(1,2200/Math.max(width,height));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(width*scale));
+        canvas.height=Math.max(1,Math.round(height*scale));
+        canvas.getContext('2d',{willReadFrequently:true}).drawImage(photo,0,0,canvas.width,canvas.height);
+        processCapturedCanvas(canvas);
+      }catch(error){notify('Unable to read photo: '+error.message);}
+      finally{URL.revokeObjectURL(url);}
+    }
+    async function getOCRWorker(){
+      if(ocrWorker)return ocrWorker;
+      if(!window.Tesseract)throw new Error('OCR library could not load. Check the internet connection.');
+      if(!ocrInitialization){
+        ocrInitialization=Tesseract.createWorker('eng',1,{
+          logger:m=>{if(m.status==='recognizing text'&&ui.dialog.open&&dialogMode==='scan')setOCRInfo('Reading text… '+Math.round((m.progress||0)*100)+'%');}
+        }).then(worker=>(ocrWorker=worker)).catch(err=>{ocrInitialization=null;throw err;});
+      }
+      return ocrInitialization;
+    }
+    function setOCRInfo(message){ui.ocrInfo.textContent=message;ui.ocrInfo.classList.add('visible');}
+    function extractOCR(text){
+      const lines=String(text||'').split(/\r?\n/).map(s=>s.trim().replace(/\s{2,}/g,' ')).filter(Boolean);
+      const numberCandidates=[];
+      const addCandidate=value=>{const id=normalizeId(value);if(/^\d{7,12}$/.test(id)&&!numberCandidates.includes(id))numberCandidates.push(id);};
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i];
+        if(/(?:student\s*(?:number|no\.?|#|id)|id\s*(?:number|no\.?|#)|matriculation|student\s*#)/i.test(line)){
+          const labeled=line.match(/(?:student\s*(?:number|no\.?|#|id)|id\s*(?:number|no\.?|#)|matriculation|student\s*#)\s*[:#-]?\s*([\d -]{7,20})/i);
+          if(labeled)addCandidate(labeled[1]);
+          else if(i+1<lines.length) { const next=lines[i+1].match(/\b\d(?:[\d -]{5,14})\d\b/);if(next)addCandidate(next[0]); }
+        }
+      }
+      // Numeric ID candidates. Prefer one that is actually in the uploaded roster.
+      for(const line of lines)for(const match of line.matchAll(/\b\d(?:[ -]?\d){6,11}\b/g))addCandidate(match[0]);
+      const number=numberCandidates.find(id=>roster.has(id))||numberCandidates[0]||'';
+      let name='';
+      for(let i=0;i<lines.length;i++){
+        const m=lines[i].match(/^(?:full\s*)?name\s*[:\-]\s*(.+)$/i);
+        if(m){name=m[1];break;}
+        if(/^name\s*:?$/i.test(lines[i])&&lines[i+1]){name=lines[i+1];break;}
+      }
+      if(!name){
+        const banned=/university|student|card|campus|valid|expire|issue|date|faculty|school|library|member|british columbia|canada|photograph|number|ubc|college|\d|www|http|@|department|signature|access|identity|services/i;
+        const words=lines.filter(s=>/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .,'’-]{3,54}$/.test(s) && !banned.test(s)&&s.trim().split(/\s+/).length>=2&&s.trim().split(/\s+/).length<=5);
+        name=words[0]||'';
+      }
+      name=name.replace(/\s+/g,' ').replace(/\s*\|\s*/g,' ').trim();
+      if(!name&&number&&roster.has(number))name=roster.get(number).name;
+      return {name,number};
+    }
+    async function runOCR(canvas){
+      const token=++ocrToken;
+      processing=true;ui.captureBtn.disabled=true;ui.saveEntryBtn.disabled=true;
+      setOCRInfo('Preparing OCR… The first scan may download language data.');
+      try{
+        const worker=await getOCRWorker();
+        if(token!==ocrToken)return;
+        const result=await worker.recognize(canvas);
+        if(token!==ocrToken)return;
+        const {name,number}=extractOCR(result.data.text);
+        ui.name.value=name;ui.number.value=number;updateMatchHint();
+        if(name&&number)setOCRInfo('Text detected. Check both fields against the card, then save.');
+        else setOCRInfo('Some details were unclear. Please fill in or correct the fields before saving.');
+      }catch(err){if(token===ocrToken)setOCRInfo('Automatic OCR is unavailable ('+err.message+'). Enter the details manually using the photo above.');}
+      finally{if(token===ocrToken){processing=false;ui.saveEntryBtn.disabled=false;ui.captureBtn.disabled=!stream;}}
+    }
+
+    function openDialog(mode, record=null){
+      ++ocrToken;processing=false;dialogMode=mode;editingUid=record?.uid??null;
+      ui.name.value=record?.name||'';ui.number.value=record?.number||'';
+      ui.ocrInfo.classList.remove('visible');ui.matchHint.classList.remove('visible');ui.preview.style.display='none';ui.previewImg.removeAttribute('src');ui.saveEntryBtn.disabled=false;
+      ui.entryTitle.textContent=mode==='manual'?'Manual student check-in':mode==='edit'?'Edit student details':'Review scanned ID';
+      ui.entrySubtitle.textContent=mode==='scan'?'Please verify the detected information against the card.':mode==='edit'?'Correct this record and save your changes.':'Enter the student’s details to record attendance.';
+      ui.saveEntryBtn.textContent=mode==='edit'?'Save changes':'Save check-in';
+      ui.dialog.showModal();
+      if(mode!=='scan'){ui.name.focus();updateMatchHint();}
+    }
+    function closeDialog(){ocrToken++;processing=false;ui.dialog.close();ui.captureBtn.disabled=!stream;ui.previewImg.removeAttribute('src');}
+    function updateMatchHint(){const id=normalizeId(ui.number.value);if(roster.has(id)){ui.matchHint.textContent='Roster record: '+roster.get(id).name+' ('+roster.get(id).number+')';ui.matchHint.classList.add('visible');}else ui.matchHint.classList.remove('visible');}
+    function saveEntry(e){
+      e.preventDefault();
+      const name=ui.name.value.trim().replace(/\s+/g,' '),number=ui.number.value.trim(),id=normalizeId(number);
+      if(!name||!id){notify('Please enter both a name and student number.');return;}
+      if(id.length<4){notify('Please check the student number.');return;}
+      if(dialogMode==='edit'){
+        const record=scans.find(s=>s.uid===editingUid);
+        if(record){record.name=name;record.number=number;notify('Student record updated.');}
+      }else{
+        const duplicate=scans.some(s=>normalizeId(s.number)===id);
+        scans.unshift({uid:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),name,number,source:dialogMode==='scan'?'Scanned':'Manual',time:new Date()});
+        notify(duplicate?'Entry saved. This student number already has a check-in.':'Student checked in successfully.');
+      }
+      closeDialog();render();
+    }
+
+    function analyze(){
+      const present=new Set();const firstSeen=new Set();
+      const statuses=new Map();
+      for(const s of [...scans].reverse()){
+        const id=normalizeId(s.number);
+        if(firstSeen.has(id)){statuses.set(s.uid,{label:'Duplicate',cls:'warn',reason:'An earlier entry has this student number.'});continue;}
+        firstSeen.add(id);
+        if(!checked){statuses.set(s.uid,{label:'Not checked',cls:'',reason:''});continue;}
+        if(!roster.has(id)){statuses.set(s.uid,{label:'Not on roster',cls:'bad',reason:'Student number not in the uploaded roster.'});continue;}
+        present.add(id);
+        const expected=normalizeName(roster.get(id).name), observed=normalizeName(s.name);
+        const nameDiffers=expected&&observed&&expected!==observed;
+        statuses.set(s.uid,{label:nameDiffers?'Verify name':'Matched',cls:nameDiffers?'warn':'good',reason:nameDiffers?'Number matches the roster, but the name differs. Roster: '+roster.get(id).name:''});
+      }
+      const missing=[...roster].filter(([id])=>!present.has(id)).map(([,v])=>v);
+      return {statuses,present,missing};
+    }
+    function render(){
+      const info=analyze();const count=roster.size;
+      ui.total.textContent=count.toLocaleString();
+      ui.matched.textContent=checked?String(info.present.size):'—';ui.missing.textContent=checked?String(info.missing.length):'—';
+      ui.checkBtn.disabled=count===0;ui.checkBtn.textContent=checked?'Recheck attendance':'Check attendance';
+      ui.checkNote.textContent=!count?'Upload a roster to enable matching.':checked?'Matched students are counted once by student number.':'Run a check to calculate attendance.';
+      ui.rosterFileName.textContent=count?`${rosterFileName} · ${count} students`:'No roster uploaded';
+      const ids=new Set(scans.map(s=>normalizeId(s.number)));
+      ui.scanCount.textContent=`${scans.length} scan${scans.length===1?'':'s'}`;
+      ui.clearBtn.disabled=!scans.length;ui.exportBtn.disabled=!scans.length&&!count;
+      const search=ui.searchInput.value.trim().toLowerCase();
+      const visible=scans.filter(s=>!search||s.name.toLowerCase().includes(search)||s.number.toLowerCase().includes(search));
+      ui.scanRows.replaceChildren();const fragment=document.createDocumentFragment();
+      for(const s of visible){
+        const tr=el('tr');const nameTd=el('td');nameTd.appendChild(el('b','',s.name));tr.appendChild(nameTd);
+        tr.appendChild(el('td','',s.number));tr.appendChild(el('td','',s.source));tr.appendChild(el('td','',timeText(s.time)));
+        const statusTd=el('td'),status=info.statuses.get(s.uid);const b=statusBadge(status?.label||'Not checked',status?.cls||'');if(status?.reason)b.title=status.reason;statusTd.appendChild(b);tr.appendChild(statusTd);
+        const actions=el('td');const holder=el('div','action-inline');const edit=el('button','','Edit');edit.type='button';edit.addEventListener('click',()=>openDialog('edit',s));const remove=el('button','remove','Remove');remove.type='button';remove.addEventListener('click',()=>{scans=scans.filter(x=>x.uid!==s.uid);render();notify('Record removed.');});holder.append(edit,remove);actions.append(holder);tr.append(actions);fragment.appendChild(tr);
+      }
+      ui.scanRows.appendChild(fragment);ui.emptyState.style.display=scans.length?'none':'';
+      if(scans.length&&!visible.length){const tr=el('tr'),td=el('td','muted','No records match your search.');td.colSpan=6;td.style.textAlign='center';tr.append(td);ui.scanRows.append(tr);}
+      ui.listFooter.textContent=`Showing ${visible.length} of ${scans.length} records · ${ids.size} unique student ID${ids.size===1?'':'s'}`;
+      ui.missingPanel.classList.toggle('visible',checked&&count>0);
+      ui.missingToggleText.textContent=`${info.missing.length} missing student${info.missing.length===1?'':'s'} · ${info.missing.length?'View list':'All accounted for'}`;
+      ui.missingNames.replaceChildren();
+      if(info.missing.length){for(const student of info.missing){const row=el('div','missing-row');row.append(el('b','',student.name),el('span','',student.number));ui.missingNames.append(row);}}
+      else ui.missingNames.append(el('div','missing-row','All roster students have checked in.'));
+    }
+
+    // Read RFC-4180-style CSV/TSV with quoted fields, embedded delimiters, and newlines.
+    function parseDelimited(text,delimiter){
+      const rows=[];let row=[],value='',inside=false;
+      text=String(text).replace(/^\uFEFF/,'');
+      for(let i=0;i<text.length;i++){
+        const ch=text[i];if(ch==='"'){if(inside&&text[i+1]==='"'){value+='"';i++;}else inside=!inside;}
+        else if(ch===delimiter&&!inside){row.push(value);value='';}
+        else if((ch==='\n'||ch==='\r')&&!inside){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(value);if(row.some(c=>String(c).trim()))rows.push(row);row=[];value='';}
+        else value+=ch;
+      }
+      row.push(value);if(row.some(c=>String(c).trim()))rows.push(row);return rows;
+    }
+    function detectDelimiter(text){const first=String(text).split(/\r?\n/).slice(0,3).join('\n');const vals=[',','\t',';'].map(ch=>({ch,n:(first.match(new RegExp(ch==='\t'?'\\t':ch===';'?';':',','g'))||[]).length}));vals.sort((a,b)=>b.n-a.n);return vals[0].ch;}
+    const normHead=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    function detectHeaders(row){
+      const heads=row.map(normHead);
+      let num=heads.findIndex(h=>['studentnumber','studentno','studentnum','studentid','studentidnumber','student#','id','number','personnumber','campusid','ubcstudentnumber','sid'].includes(h));
+      if(num<0)num=heads.findIndex(h=>/student.*(number|id|no)/.test(h));
+      const name=heads.findIndex(h=>['name','studentname','fullname','preferredname','displayname','legalname'].includes(h));
+      const first=heads.findIndex(h=>['firstname','givenname','given','first'].includes(h));
+      const last=heads.findIndex(h=>['lastname','surname','familyname','last'].includes(h));
+      return {num,name,first,last,valid:num>=0&&(name>=0||(first>=0&&last>=0))};
+    }
+    function rowsToRoster(rows){
+      const headerIndex=rows.slice(0,15).findIndex(r=>detectHeaders(r).valid);
+      if(headerIndex<0)throw Error('Could not find columns for "Student Number" and "Name" (or "First Name" + "Last Name"). Download the sample CSV for the expected format.');
+      const cols=detectHeaders(rows[headerIndex]),next=new Map();let skipped=0,duplicate=0;
+      for(let i=headerIndex+1;i<rows.length;i++){
+        const row=rows[i];const num=String(row[cols.num]??'').trim();
+        const name=cols.name>=0?String(row[cols.name]??'').trim():[row[cols.first],row[cols.last]].filter(Boolean).join(' ').trim();
+        const id=normalizeId(num);
+        if(!id||!name){skipped++;continue;}
+        if(next.has(id)){duplicate++;continue;}
+        next.set(id,{name,number:num});
+      }
+      if(!next.size)throw Error('The file does not contain any valid student rows.');
+      return {next,skipped,duplicate};
+    }
+    async function importRoster(file){
+      if(!file)return;
+      if(file.size>20*1024*1024){notify('Please upload a roster smaller than 20 MB.');return;}
+      ui.uploadBtn.disabled=true;
+      try{
+        const ext=file.name.split('.').pop().toLowerCase();let rows;
+        if(['xlsx','xls'].includes(ext)){
+          if(!window.XLSX)throw Error('Excel reader is unavailable. Please save the roster as CSV instead.');
+          const bytes=await file.arrayBuffer();const book=XLSX.read(bytes,{type:'array'});
+          if(!book.SheetNames.length)throw Error('This Excel workbook has no worksheets.');
+          // Pick the first worksheet that contains recognizable roster columns.
+          for(const sheetName of book.SheetNames){
+            const candidate=XLSX.utils.sheet_to_json(book.Sheets[sheetName],{header:1,raw:false,defval:''});
+            if(candidate.slice(0,15).some(r=>detectHeaders(r).valid)){rows=candidate;break;}
+          }
+          if(!rows)throw Error('No worksheet contains Student Number and Name columns.');
+        }else if(['csv','tsv','txt'].includes(ext)){
+          const txt=await file.text();rows=parseDelimited(txt,ext==='tsv'?'\t':detectDelimiter(txt));
+        }else throw Error('Please choose a CSV, TSV, XLSX or XLS file.');
+        const result=rowsToRoster(rows);
+        roster=result.next;rosterFileName=file.name;
+        render();let message=`Roster loaded: ${roster.size} students.`;
+        if(result.skipped||result.duplicate)message+=` Skipped ${result.skipped} incomplete row(s) and ${result.duplicate} duplicate ID(s).`;
+        notify(message);
+      }catch(e){notify('Roster import failed: '+e.message);}
+      finally{ui.rosterFile.value='';ui.uploadBtn.disabled=false;}
+    }
+    function exportAttendance(){
+      const rows=[['Student Number','Student Name','Attendance','Check-In Time','Entry Method']];
+      if(roster.size){
+        const checkedIn=new Map();for(const s of [...scans].reverse()){const id=normalizeId(s.number);if(!checkedIn.has(id))checkedIn.set(id,s);}
+        for(const [id,r] of roster){const s=checkedIn.get(id);rows.push([r.number,r.name,s?'Present':'Missing',s?timeText(s.time):'',s?.source||'']);}
+        for(const [id,s] of checkedIn){if(!roster.has(id))rows.push([s.number,s.name,'Not on roster',timeText(s.time),s.source]);}
+      }else for(const s of scans)rows.push([s.number,s.name,'Unchecked',timeText(s.time),s.source]);
+      const content=rows.map(r=>r.map(safeCSV).join(',')).join('\r\n');
+      const day=new Date().toISOString().slice(0,10);downloadFile(content,`exam-attendance-${day}.csv`);
+    }
+
+    ui.scanBtn.addEventListener('click',startCamera);ui.stopBtn.addEventListener('click',stopCamera);
+    ui.captureBtn.addEventListener('click',captureFrame);
+    ui.switchBtn.addEventListener('click',switchCamera);
+    ui.photoBtn.addEventListener('click',()=>ui.photoInput.click());
+    ui.photoInput.addEventListener('change',e=>{const file=e.target.files?.[0];e.target.value='';processPhoto(file);});
+    ui.uploadBtn.addEventListener('click',()=>ui.rosterFile.click());ui.rosterFile.addEventListener('change',e=>importRoster(e.target.files[0]));
+    for(const ev of ['dragover','dragenter'])ui.uploadBtn.addEventListener(ev,e=>{e.preventDefault();ui.uploadBtn.classList.add('dragging');});
+    for(const ev of ['dragleave','drop'])ui.uploadBtn.addEventListener(ev,e=>{e.preventDefault();ui.uploadBtn.classList.remove('dragging');});
+    ui.uploadBtn.addEventListener('drop',e=>importRoster(e.dataTransfer.files[0]));
+    $('sampleBtn').addEventListener('click',()=>downloadFile('Student Number,Name\r\n12345678,Alex Chen\r\n87654321,Jordan Lee\r\n12349876,Taylor Singh\r\n','sample-student-roster.csv'));
+    $('manualBtn').addEventListener('click',()=>openDialog('manual'));
+    $('closeDialog').addEventListener('click',closeDialog);$('cancelDialog').addEventListener('click',closeDialog);
+    ui.dialog.addEventListener('cancel',e=>{e.preventDefault();closeDialog();});
+    ui.form.addEventListener('submit',saveEntry);ui.number.addEventListener('input',updateMatchHint);
+    ui.checkBtn.addEventListener('click',()=>{checked=true;render();const i=analyze();notify(`Attendance checked: ${i.present.size} matched, ${i.missing.length} missing.`);});
+    ui.searchInput.addEventListener('input',render);ui.exportBtn.addEventListener('click',exportAttendance);
+    ui.clearBtn.addEventListener('click',()=>{if(confirm(`Remove all ${scans.length} check-in records? Your uploaded roster will remain.`)){scans=[];render();notify('All check-ins cleared.');}});
+    ui.missingToggle.addEventListener('click',()=>{const open=ui.missingNames.classList.toggle('open');ui.missingChevron.textContent=open?'▴':'▾';});
+    window.addEventListener('pagehide',()=>{stopCamera();if(ocrWorker)ocrWorker.terminate();});
+    render();
+  })();
+  </script>
+</body>
+</html>

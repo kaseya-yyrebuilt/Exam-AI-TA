@@ -1,0 +1,34 @@
+{
+  "title": "Example: Introductory Circuits Exam",
+  "version": "1.0",
+  "questions": [
+    {
+      "id": "Q1",
+      "title": "Ohm's law and current",
+      "max_points": 10,
+      "model_solution": "For a 12 V source across a 4 ohm resistor, I=V/R=12/4=3 A. Accept any equivalent correct method, with correct units.",
+      "regions": [
+        {"page": 1, "box": {"x0": 0.06, "y0": 0.14, "x1": 0.94, "y1": 0.94}}
+      ],
+      "deductions": [
+        {"id": "FORMULA", "label": "Incorrect law or formula", "points": 3, "detail": "Deduct only if the selected law or rearrangement is fundamentally incorrect.", "max_applications": 1, "exclusive_group": "method"},
+        {"id": "ARITHMETIC", "label": "Arithmetic error", "points": 1, "detail": "One arithmetic deduction per question; follow-through errors are not repeatedly penalized.", "max_applications": 1},
+        {"id": "UNITS", "label": "Incorrect or absent units", "points": 1, "max_applications": 1}
+      ]
+    },
+    {
+      "id": "Q2",
+      "title": "AC circuit impedance",
+      "max_points": 10,
+      "model_solution": "Analyze the AC impedance using the circuit and values shown on the exam paper. Check phasor conventions, magnitude and angle. This sample is illustrative and intentionally incomplete.",
+      "regions": [
+        {"page": 2, "box": {"x0": 0.06, "y0": 0.14, "x1": 0.94, "y1": 0.94}}
+      ],
+      "deductions": [
+        {"id": "IMPEDANCE", "label": "Incorrect impedance calculation", "points": 3, "max_applications": 1},
+        {"id": "PHASOR", "label": "Incorrect phasor convention", "points": 2, "max_applications": 1},
+        {"id": "ARITHMETIC", "label": "Arithmetic error", "points": 1, "max_applications": 1}
+      ]
+    }
+  ]
+}
