@@ -27,7 +27,6 @@ This project demonstrates how I approach **end-to-end AI automation**: start fro
 
 **A responsive HTML/JavaScript check-in app designed for exam-room use on a phone or laptop.**
 
-![ExamCheck mobile layout](assets/examcheck-mobile.png)
 
 **Implemented**
 - **Phone camera access:** requests the camera on the device running the webpage; prioritizes the rear camera, supports camera switching, and offers a native photo-picker fallback.
